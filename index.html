@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Good Luck!</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: #f0e6d3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.container {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flower-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.text-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  max-width: 480px;
+}
+
+.headline {
+  font-size: clamp(2rem, 8vw, 3.5rem);
+  color: #1a3a5c;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  font-weight: normal;
+  font-style: italic;
+  opacity: 0;
+  animation: fadeUp 1.2s ease-out 0.5s forwards;
+}
+
+.subline {
+  font-size: clamp(1rem, 4vw, 1.4rem);
+  color: #5a4a3a;
+  line-height: 1.5;
+  font-weight: normal;
+  opacity: 0;
+  animation: fadeUp 1.2s ease-out 1s forwards;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Flower SVG drawing animation */
+.flower-svg {
+  position: absolute;
+  opacity: 0;
+  animation: appear 0.3s ease forwards;
+}
+
+.flower-svg .petal {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: var(--path-length);
+  stroke-dashoffset: var(--path-length);
+  animation: drawPetal var(--duration) ease forwards;
+  animation-delay: var(--delay);
+}
+
+.flower-svg .petal-fill {
+  opacity: 0;
+  animation: fillIn 0.6s ease forwards;
+  animation-delay: var(--fill-delay);
+}
+
+.flower-svg .center-dot {
+  transform-origin: center;
+  transform: scale(0);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: var(--center-delay);
+}
+
+.flower-svg .stem {
+  fill: none;
+  stroke: #6a8a5a;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: var(--stem-length);
+  stroke-dashoffset: var(--stem-length);
+  animation: drawPetal var(--stem-duration) ease forwards;
+  animation-delay: var(--stem-delay);
+}
+
+@keyframes drawPetal {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fillIn {
+  to {
+    opacity: 0.7;
+  }
+}
+
+@keyframes popIn {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Gentle sway for finished flowers */
+@keyframes sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2deg); }
+}
+
+.flower-svg.done {
+  opacity: 1;
+  animation: sway 4s ease-in-out infinite;
+}
+
+/* Desktop enhancement */
+@media (min-width: 768px) {
+  .text-content {
+    max-width: 600px;
+    padding: 3rem 2rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="flower-field" id="flowerField"></div>
+  <div class="text-content">
+    <h1 class="headline">Good luck on your finals!</h1>
+    <p class="subline">study hard now so we can eat good food later!</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const field = document.getElementById('flowerField');
+  const isMobile = window.innerWidth < 768;
+
+  // Color palette (muted Berkeley-inspired)
+  const petalColors = [
+    { stroke: '#2a5a8c', fill: '#3a6a9c' },   // muted blue
+    { stroke: '#1a4a7c', fill: '#2a5a8c' },   // deeper blue
+    { stroke: '#4a7aac', fill: '#5a8abc' },   // lighter blue
+    { stroke: '#e8e2dc', fill: '#ffffff' },    // white/cream
+    { stroke: '#d4c8b8', fill: '#f0e8dc' },   // warm white
+    { stroke: '#c8a84a', fill: '#d4b85a' },   // soft gold
+  ];
+
+  const centerColors = ['#d4b040', '#c8a030', '#e0c060', '#2a5080'];
+
+  function createPetalPath(cx, cy, angle, petalLength, petalWidth) {
+    const rad = angle * Math.PI / 180;
+    const tipX = cx + Math.cos(rad) * petalLength;
+    const tipY = cy + Math.sin(rad) * petalLength;
+    const perpRad = rad + Math.PI / 2;
+    const cp1X = cx + Math.cos(rad) * petalLength * 0.4 + Math.cos(perpRad) * petalWidth;
+    const cp1Y = cy + Math.sin(rad) * petalLength * 0.4 + Math.sin(perpRad) * petalWidth;
+    const cp2X = cx + Math.cos(rad) * petalLength * 0.4 - Math.cos(perpRad) * petalWidth;
+    const cp2Y = cy + Math.sin(rad) * petalLength * 0.4 - Math.sin(perpRad) * petalWidth;
+    return `M ${cx} ${cy} Q ${cp1X} ${cp1Y} ${tipX} ${tipY} Q ${cp2X} ${cp2Y} ${cx} ${cy}`;
+  }
+
+  function estimatePathLength(petalLength) {
+    return petalLength * 3.2;
+  }
+
+  function createFlower(x, y, size, delayBase) {
+    // size: 'small' | 'medium' | 'large'
+    const config = {
+      small:  { petals: 5, petalLength: 12, petalWidth: 5, center: 3, duration: 1, stemLength: 20 },
+      medium: { petals: 6, petalLength: 20, petalWidth: 8, center: 5, duration: 2, stemLength: 35 },
+      large:  { petals: 7, petalLength: 30, petalWidth: 12, center: 7, duration: 3, stemLength: 50 },
+    }[size];
+
+    const svgSize = config.petalLength * 2 + config.center * 2 + 10;
+    const totalSize = svgSize + config.stemLength;
+    const cx = svgSize / 2;
+    const cy = svgSize / 2;
+    const color = petalColors[Math.floor(Math.random() * petalColors.length)];
+    const centerColor = centerColors[Math.floor(Math.random() * centerColors.length)];
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'flower-svg');
+    svg.setAttribute('width', svgSize);
+    svg.setAttribute('height', totalSize);
+    svg.style.left = x + 'px';
+    svg.style.top = y + 'px';
+    svg.style.animationDelay = delayBase + 's';
+
+    const angleOffset = Math.random() * 360;
+    const pathLength = estimatePathLength(config.petalLength);
+
+    // Draw stem
+    const stemPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const stemStartY = cy + config.center;
+    const stemEndY = stemStartY + config.stemLength;
+    const stemCurve = (Math.random() - 0.5) * 10;
+    stemPath.setAttribute('d', `M ${cx} ${stemStartY} Q ${cx + stemCurve} ${(stemStartY + stemEndY) / 2} ${cx} ${stemEndY}`);
+    stemPath.setAttribute('class', 'stem');
+    stemPath.style.setProperty('--stem-length', config.stemLength * 1.5 + '');
+    stemPath.style.setProperty('--stem-duration', (config.duration * 0.4) + 's');
+    stemPath.style.setProperty('--stem-delay', delayBase + 's');
+    svg.appendChild(stemPath);
+
+    // Draw petals
+    for (let i = 0; i < config.petals; i++) {
+      const angle = angleOffset + (360 / config.petals) * i;
+      const d = createPetalPath(cx, cy, angle, config.petalLength, config.petalWidth);
+      const petalDelay = delayBase + (config.duration * 0.3) + (i * config.duration * 0.6 / config.petals);
+
+      // Fill layer
+      const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      fillPath.setAttribute('d', d);
+      fillPath.setAttribute('class', 'petal-fill');
+      fillPath.setAttribute('fill', color.fill);
+      fillPath.style.setProperty('--fill-delay', (petalDelay + config.duration * 0.15) + 's');
+      svg.appendChild(fillPath);
+
+      // Stroke layer (drawing animation)
+      const strokePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      strokePath.setAttribute('d', d);
+      strokePath.setAttribute('class', 'petal');
+      strokePath.setAttribute('stroke', color.stroke);
+      strokePath.setAttribute('stroke-width', '1.5');
+      strokePath.style.setProperty('--path-length', pathLength + '');
+      strokePath.style.setProperty('--duration', (config.duration * 0.5) + 's');
+      strokePath.style.setProperty('--delay', petalDelay + 's');
+      svg.appendChild(strokePath);
+    }
+
+    // Center dot
+    const center = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    center.setAttribute('cx', cx);
+    center.setAttribute('cy', cy);
+    center.setAttribute('r', config.center);
+    center.setAttribute('fill', centerColor);
+    center.setAttribute('class', 'center-dot');
+    center.style.setProperty('--center-delay', (delayBase + config.duration * 0.85) + 's');
+    svg.appendChild(center);
+
+    field.appendChild(svg);
+
+    // Add gentle sway after animation completes
+    setTimeout(() => {
+      svg.style.transformOrigin = `${cx}px ${totalSize}px`;
+      svg.classList.add('done');
+    }, (delayBase + config.duration + 1) * 1000);
+  }
+
+  function placeFlowers() {
+    field.innerHTML = '';
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    // Define placement zones (avoid center text area)
+    const centerZone = {
+      left: w * 0.1,
+      right: w * 0.9,
+      top: h * 0.3,
+      bottom: h * 0.7,
+    };
+
+    const flowers = [];
+    const count = isMobile ? 64 : 182;
+
+    for (let i = 0; i < count; i++) {
+      let x, y, attempts = 0;
+      const size = i < count * 0.4 ? 'small' : i < count * 0.75 ? 'medium' : 'large';
+      const flowerSize = size === 'small' ? 30 : size === 'medium' ? 50 : 70;
+
+      // Place flowers, preferring edges and areas around (not on) the text
+      do {
+        x = Math.random() * (w - flowerSize);
+        y = Math.random() * (h - flowerSize);
+        attempts++;
+      } while (
+        attempts < 30 &&
+        x > centerZone.left && x < centerZone.right &&
+        y > centerZone.top && y < centerZone.bottom
+      );
+
+      const delay = 0.2 + Math.random() * 2.5;
+      flowers.push({ x, y, size, delay });
+    }
+
+    // Sort by delay for a nice cascade feel
+    flowers.sort((a, b) => a.delay - b.delay);
+    flowers.forEach(f => createFlower(f.x, f.y, f.size, f.delay));
+  }
+
+  placeFlowers();
+
+  // Wind gust on click/tap
+  function handleGust(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    const gustX = touch.clientX;
+    const gustY = touch.clientY;
+    const radius = 196;
+
+    const flowers = field.querySelectorAll('.flower-svg.done');
+    flowers.forEach(svg => {
+      const rect = svg.getBoundingClientRect();
+      const flowerCenterX = rect.left + rect.width / 2;
+      const flowerCenterY = rect.top + rect.height * 0.4;
+
+      const dx = flowerCenterX - gustX;
+      const dy = flowerCenterY - gustY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > radius || dist < 1) return;
+
+      const strength = 1 - (dist / radius);
+      const maxAngle = 15;
+      const angle = (dx >= 0 ? 1 : -1) * maxAngle * strength * (0.7 + Math.random() * 0.3);
+
+      // Stagger the push based on distance (closer flowers react sooner)
+      const staggerDelay = (dist / radius) * 150;
+
+      setTimeout(() => {
+        // Kill the sway animation inline (keep .done for opacity)
+        svg.style.animation = 'none';
+        svg.style.transform = 'rotate(0deg)';
+
+        // Wait a full frame so the browser commits the start state
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            svg.style.transition = 'transform 0.8s cubic-bezier(0.2, 0.6, 0.4, 1)';
+            svg.style.transform = `rotate(${angle}deg)`;
+
+            // Spring back gently
+            setTimeout(() => {
+              svg.style.transition = 'transform 1.6s cubic-bezier(0.2, 0.8, 0.3, 1)';
+              svg.style.transform = '';
+              setTimeout(() => {
+                // Clean up inline overrides, let .done sway resume
+                svg.style.transition = '';
+                svg.style.animation = '';
+              }, 1600);
+            }, 800 + Math.random() * 400);
+          });
+        });
+      }, staggerDelay);
+    });
+  }
+
+  document.addEventListener('click', handleGust);
+  document.addEventListener('touchstart', handleGust, { passive: true });
+
+  // Drag/swipe wind: track pointer movement and trigger gusts
+  let dragging = false;
+  let lastGustX = 0;
+  let lastGustY = 0;
+  const minDragDist = 40; // minimum px moved before triggering another gust
+
+  function startDrag(e) {
+    dragging = true;
+    const p = e.touches ? e.touches[0] : e;
+    lastGustX = p.clientX;
+    lastGustY = p.clientY;
+  }
+
+  function moveDrag(e) {
+    if (!dragging) return;
+    const p = e.touches ? e.touches[0] : e;
+    const dx = p.clientX - lastGustX;
+    const dy = p.clientY - lastGustY;
+    if (dx * dx + dy * dy >= minDragDist * minDragDist) {
+      lastGustX = p.clientX;
+      lastGustY = p.clientY;
+      handleGust(e);
+    }
+  }
+
+  function endDrag() {
+    dragging = false;
+  }
+
+  document.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', moveDrag);
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchstart', startDrag, { passive: true });
+  document.addEventListener('touchmove', moveDrag, { passive: true });
+  document.addEventListener('touchend', endDrag);
+  document.addEventListener('touchcancel', endDrag);
+
+  // Reposition on resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(placeFlowers, 300);
+  });
+})();
+</script>
+</body>
+</html>
