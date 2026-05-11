@@ -349,34 +349,48 @@ body {
 
       const strength = 1 - (dist / radius);
       const maxAngle = 15;
-      const angle = (dx >= 0 ? 1 : -1) * maxAngle * strength * (0.7 + Math.random() * 0.3);
+      const pushAngle = (dx >= 0 ? 1 : -1) * maxAngle * strength * (0.7 + Math.random() * 0.3);
 
       // Stagger the push based on distance (closer flowers react sooner)
       const staggerDelay = (dist / radius) * 150;
 
       setTimeout(() => {
-        // Kill the sway animation inline (keep .done for opacity)
-        svg.style.animation = 'none';
-        svg.style.transform = 'rotate(0deg)';
+        // Get current wind state
+        const currentAngle = parseFloat(svg.dataset.windAngle) || 0;
+        const maxClamp = 35;
 
-        // Wait a full frame so the browser commits the start state
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            svg.style.transition = 'transform 0.8s cubic-bezier(0.2, 0.6, 0.4, 1)';
-            svg.style.transform = `rotate(${angle}deg)`;
+        // Blend toward the new push direction
+        let newAngle = currentAngle + pushAngle * 0.6;
+        newAngle = Math.max(-maxClamp, Math.min(maxClamp, newAngle));
 
-            // Spring back gently
-            setTimeout(() => {
-              svg.style.transition = 'transform 1.6s cubic-bezier(0.2, 0.8, 0.3, 1)';
-              svg.style.transform = '';
-              setTimeout(() => {
-                // Clean up inline overrides, let .done sway resume
-                svg.style.transition = '';
-                svg.style.animation = '';
-              }, 1600);
-            }, 800 + Math.random() * 400);
-          });
-        });
+        svg.dataset.windAngle = newAngle;
+
+        // Clear any pending return timer
+        if (svg._windReturnTimer) clearTimeout(svg._windReturnTimer);
+        if (svg._windCleanupTimer) clearTimeout(svg._windCleanupTimer);
+
+        // If this is the first gust (sway still active), set up the transition
+        if (!svg._windActive) {
+          svg._windActive = true;
+          svg.style.animation = 'none';
+          svg.style.transform = `rotate(${currentAngle}deg)`;
+          svg.offsetWidth; // commit starting point
+        }
+
+        svg.style.transition = 'transform 0.8s cubic-bezier(0.2, 0.6, 0.4, 1)';
+        svg.style.transform = `rotate(${newAngle}deg)`;
+
+        // Set return timer — only springs back after gusts stop
+        svg._windReturnTimer = setTimeout(() => {
+          svg.dataset.windAngle = '0';
+          svg.style.transition = 'transform 1.6s cubic-bezier(0.2, 0.8, 0.3, 1)';
+          svg.style.transform = '';
+          svg._windCleanupTimer = setTimeout(() => {
+            svg.style.transition = '';
+            svg.style.animation = '';
+            svg._windActive = false;
+          }, 1600);
+        }, 1000);
       }, staggerDelay);
     });
   }
